@@ -1,0 +1,277 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pont Diviseur Simulation</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="Simulation interactive du pont diviseur de tension (TP1, exercices 2.1 et 2.2)">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: one column, schematic and readouts side by side on wide screens, scope below. */
+:root {
+  --bg: #f3f5f4;
+  --panel: #ffffff;
+  --fg: #16201d;
+  --muted: #5b6a66;
+  --line: #d3dbd8;
+  --accent: #0b7a6b;
+  --ch1: #0a8fb3;
+  --ch2: #b9850a;
+  --font-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1614; --panel: #17211e; --fg: #e6efec; --muted: #94a6a1;
+    --line: #2a3835; --accent: #3fc8b2; --ch1: #35d0f5; --ch2: #f2c14e;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f1614; --panel: #17211e; --fg: #e6efec; --muted: #94a6a1;
+  --line: #2a3835; --accent: #3fc8b2; --ch1: #35d0f5; --ch2: #f2c14e;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--fg);
+  font-family: var(--font-body); font-size: 15px; line-height: 1.5;
+  padding-block: 28px 48px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.wrap { max-width: 980px; margin: 0 auto; display: grid; gap: 20px; }
+header h1 { font-size: 1.6rem; font-weight: 600; margin: 0 0 4px; text-wrap: balance; }
+header p { margin: 0; color: var(--muted); max-width: 65ch; }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 20px; }
+h2 { font-size: 1.05rem; margin: 0 0 14px; font-weight: 600; }
+h2 span { font-family: var(--font-mono); font-weight: 400; font-size: .8rem; color: var(--muted); margin-left: 8px; letter-spacing: .04em; text-transform: uppercase; }
+.cols { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 24px; }
+@media (max-width: 720px) { .cols { grid-template-columns: minmax(0, 1fr); } }
+.controls { display: grid; gap: 12px; margin-bottom: 18px; }
+.ctl { display: grid; grid-template-columns: 5.5rem minmax(0, 1fr) 5.5rem; align-items: center; gap: 10px; }
+.ctl label { font-size: .85rem; color: var(--muted); }
+.ctl output { font-family: var(--font-mono); font-size: .88rem; text-align: right; font-variant-numeric: tabular-nums; }
+input[type=range] { width: 100%; accent-color: var(--accent); }
+input[type=range]:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+svg.schem { width: 100%; height: auto; max-width: 100%; display: block; }
+.w { stroke: var(--fg); stroke-width: 1.6; fill: none; }
+.part { stroke: var(--fg); stroke-width: 1.6; fill: var(--panel); }
+.t { fill: var(--fg); font-family: var(--font-mono); font-size: 11px; }
+.tm { fill: var(--muted); font-family: var(--font-mono); font-size: 10px; }
+.tv { fill: var(--accent); font-family: var(--font-mono); font-size: 11px; font-weight: 500; }
+.dot { fill: var(--fg); }
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: .9rem; }
+th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+th { font-weight: 500; color: var(--muted); font-size: .78rem; letter-spacing: .05em; text-transform: uppercase; }
+td.n { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+td.hl { color: var(--accent); font-weight: 500; }
+.note { color: var(--muted); font-size: .85rem; margin: 12px 0 0; max-width: 65ch; }
+.row { display: flex; flex-wrap: wrap; gap: 14px 22px; margin-bottom: 14px; align-items: center; }
+.row .ctl { grid-template-columns: 5rem 11rem 5rem; }
+@media (max-width: 560px) { .row .ctl { grid-template-columns: 5rem minmax(0, 1fr) 5rem; width: 100%; } }
+.sel { display: flex; align-items: center; gap: 8px; font-size: .85rem; color: var(--muted); }
+select { background: var(--panel); color: var(--fg); border: 1px solid var(--line); border-radius: 6px; padding: 5px 8px; font-family: var(--font-mono); font-size: .85rem; }
+.screen { background: #04120d; border: 1px solid #1d3a30; border-radius: 6px; padding: 6px; }
+canvas { display: block; width: 100%; height: auto; max-width: 100%; }
+.legend { display: flex; gap: 18px; font-family: var(--font-mono); font-size: .8rem; margin-top: 10px; flex-wrap: wrap; }
+.legend i { display: inline-block; width: 18px; height: 3px; vertical-align: middle; margin-right: 6px; }
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Pont diviseur de tension</h1>
+    <p>Simulation du TP1, Circuits Électriques. Exercice 2.1 en continu (DC), exercice 2.2 en alternatif (AC) avec un oscilloscope virtuel. Déplace les curseurs, les valeurs se recalculent.</p>
+  </header>
+
+  <section class="panel" aria-labelledby="h-dc">
+    <h2 id="h-dc">Exercice 2.1<span>Pont diviseur DC</span></h2>
+    <div class="cols">
+      <div>
+        <div class="controls">
+          <div class="ctl"><label for="vcc">Vcc</label><input id="vcc" type="range" min="1" max="24" step="0.5" value="12"><output id="o-vcc"></output></div>
+          <div class="ctl"><label for="r1">R1</label><input id="r1" type="range" min="100" max="10000" step="100" value="2200"><output id="o-r1"></output></div>
+          <div class="ctl"><label for="r2">R2</label><input id="r2" type="range" min="100" max="10000" step="100" value="4700"><output id="o-r2"></output></div>
+        </div>
+        <svg class="schem" viewBox="0 0 360 230" role="img" aria-label="Schéma: source Vcc, ampèremètre en série, R1 et R2 en série, voltmètre en parallèle sur R2">
+          <path class="w" d="M60 30 H116 M144 30 H202 V52 M202 102 V122 M202 172 V200 M60 30 V92 M60 108 V200 H202 M202 200 H280 M202 112 H280 V134 M280 162 V200"/>
+          <path class="w" d="M48 92 H72 M54 108 H66"/>
+          <rect class="part" x="190" y="52" width="24" height="50"/>
+          <rect class="part" x="190" y="122" width="24" height="50"/>
+          <circle class="dot" cx="202" cy="112" r="3"/>
+          <circle class="part" cx="130" cy="30" r="14"/><text class="t" x="130" y="34" text-anchor="middle">A</text>
+          <circle class="part" cx="280" cy="148" r="14"/><text class="t" x="280" y="152" text-anchor="middle">V</text>
+          <path class="w" d="M202 200 v6 M194 206 h16 M197 210 h10 M200 214 h4"/>
+          <text class="t" x="80" y="104">Vcc</text><text class="tv" id="s-vcc" x="80" y="119"></text>
+          <text class="t" x="180" y="80" text-anchor="end">R1</text><text class="tm" id="s-r1" x="180" y="93" text-anchor="end"></text>
+          <text class="t" x="180" y="150" text-anchor="end">R2</text><text class="tm" id="s-r2" x="180" y="163" text-anchor="end"></text>
+          <text class="tm" x="130" y="12" text-anchor="middle">I (série)</text><text class="tv" id="s-i" x="130" y="58" text-anchor="middle"></text>
+          <text class="tm" x="280" y="186" text-anchor="middle">V_R2</text><text class="tv" id="s-v" x="318" y="152" text-anchor="middle"></text>
+          <text class="tm" x="202" y="228" text-anchor="middle">Masse (0 V)</text>
+        </svg>
+      </div>
+      <div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Grandeur</th><th>Valeur théorique</th></tr></thead>
+            <tbody>
+              <tr><td>R1</td><td class="n" id="t-r1"></td></tr>
+              <tr><td>R2</td><td class="n" id="t-r2"></td></tr>
+              <tr><td>V_R2</td><td class="n hl" id="t-v"></td></tr>
+              <tr><td>I</td><td class="n hl" id="t-i"></td></tr>
+              <tr><td>V_R1</td><td class="n" id="t-v1"></td></tr>
+              <tr><td>P totale</td><td class="n" id="t-p"></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="note">V_R2 = Vcc · R2 / (R1 + R2) et I = Vcc / (R1 + R2). Avec 12 V, 2,2 kΩ et 4,7 kΩ, on retrouve 8,17 V et 1,74 mA.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel" aria-labelledby="h-ac">
+    <h2 id="h-ac">Exercice 2.2<span>Signal AC et oscilloscope</span></h2>
+    <div class="row">
+      <div class="ctl"><label for="freq">Fréquence</label><input id="freq" type="range" min="100" max="5000" step="50" value="1000"><output id="o-freq"></output></div>
+      <div class="ctl"><label for="vpp">Vpp (GBF)</label><input id="vpp" type="range" min="1" max="20" step="0.5" value="10"><output id="o-vpp"></output></div>
+    </div>
+    <div class="row">
+      <label class="sel" for="tdiv">Base de temps
+        <select id="tdiv"><option value="0.1">0,1 ms/div</option><option value="0.2" selected>0,2 ms/div</option><option value="0.5">0,5 ms/div</option><option value="1">1 ms/div</option></select>
+      </label>
+      <label class="sel" for="vdiv">Sensibilité
+        <select id="vdiv"><option value="1">1 V/div</option><option value="2" selected>2 V/div</option><option value="5">5 V/div</option></select>
+      </label>
+    </div>
+    <div class="screen"><canvas id="scope" width="900" height="560" aria-label="Oscillogramme de Vin (CH1) et Vout (CH2)"></canvas></div>
+    <div class="legend">
+      <span style="color:var(--ch1)"><i style="background:var(--ch1)"></i>CH1 Vin (sortie GBF)</span>
+      <span style="color:var(--ch2)"><i style="background:var(--ch2)"></i>CH2 Vout (aux bornes de R2)</span>
+    </div>
+    <div class="table-wrap" style="margin-top:16px">
+      <table>
+        <thead><tr><th>Grandeur AC</th><th>Valeur calculée</th><th>Lecture en divisions</th></tr></thead>
+        <tbody>
+          <tr><td>Période T</td><td class="n" id="a-t"></td><td class="n" id="a-td"></td></tr>
+          <tr><td>Fréquence f</td><td class="n" id="a-f"></td><td class="n">f = 1 / T</td></tr>
+          <tr><td>Vpp1 (entrée)</td><td class="n" id="a-vpp1"></td><td class="n" id="a-d1"></td></tr>
+          <tr><td>Vrms1 (entrée)</td><td class="n hl" id="a-rms1"></td><td class="n">Vmax / √2</td></tr>
+          <tr><td>Vpp2 (sortie)</td><td class="n" id="a-vpp2"></td><td class="n" id="a-d2"></td></tr>
+          <tr><td>Vrms2 (sortie)</td><td class="n hl" id="a-rms2"></td><td class="n">Vmax / √2</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="note">Vout est en phase avec Vin et réduit du rapport R2 / (R1 + R2), soit 0,68 avec les valeurs du TP. C'est pour cela que la courbe jaune est plus petite que la cyan.</p>
+  </section>
+</div>
+
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  function fmtR(r) { return r >= 1000 ? (+(r / 1000).toFixed(2)).toString().replace('.', ',') + ' kΩ' : r + ' Ω'; }
+  function fmt(x, d) { return x.toFixed(d).replace('.', ','); }
+  function css(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+
+  function update() {
+    var vcc = +$('vcc').value, r1 = +$('r1').value, r2 = +$('r2').value;
+    var f = +$('freq').value, vpp = +$('vpp').value;
+    var tdiv = +$('tdiv').value, vdiv = +$('vdiv').value;
+
+    var I = vcc / (r1 + r2), vr2 = vcc * r2 / (r1 + r2), vr1 = vcc - vr2;
+    $('o-vcc').textContent = fmt(vcc, 1) + ' V';
+    $('o-r1').textContent = fmtR(r1);
+    $('o-r2').textContent = fmtR(r2);
+    $('s-vcc').textContent = fmt(vcc, 1) + ' V';
+    $('s-r1').textContent = fmtR(r1);
+    $('s-r2').textContent = fmtR(r2);
+    $('s-i').textContent = fmt(I * 1000, 2) + ' mA';
+    $('s-v').textContent = fmt(vr2, 2) + ' V';
+    $('t-r1').textContent = r1 + ' Ω';
+    $('t-r2').textContent = r2 + ' Ω';
+    $('t-v').textContent = fmt(vr2, 2) + ' V';
+    $('t-i').textContent = fmt(I * 1000, 3) + ' mA';
+    $('t-v1').textContent = fmt(vr1, 2) + ' V';
+    $('t-p').textContent = fmt(vcc * I * 1000, 2) + ' mW';
+
+    var k = r2 / (r1 + r2), vmax = vpp / 2, T = 1000 / f;
+    var vpp2 = vpp * k;
+    $('o-freq').textContent = f + ' Hz';
+    $('o-vpp').textContent = fmt(vpp, 1) + ' V';
+    $('a-t').textContent = fmt(T, 3) + ' ms';
+    $('a-td').textContent = fmt(T / tdiv, 2) + ' div à ' + fmt(tdiv, 1) + ' ms/div';
+    $('a-f').textContent = f + ' Hz';
+    $('a-vpp1').textContent = fmt(vpp, 2) + ' V';
+    $('a-d1').textContent = fmt(vpp / vdiv, 2) + ' div à ' + vdiv + ' V/div';
+    $('a-rms1').textContent = fmt(vmax / Math.SQRT2, 2) + ' V';
+    $('a-vpp2').textContent = fmt(vpp2, 2) + ' V';
+    $('a-d2').textContent = fmt(vpp2 / vdiv, 2) + ' div à ' + vdiv + ' V/div';
+    $('a-rms2').textContent = fmt(vpp2 / 2 / Math.SQRT2, 2) + ' V';
+
+    drawScope(f, vmax, k, tdiv, vdiv);
+  }
+
+  function drawScope(f, vmax, k, tdiv, vdiv) {
+    var c = $('scope'), dpr = window.devicePixelRatio || 1;
+    var w = c.parentElement.clientWidth - 12;
+    if (w < 200) w = 200;
+    var h = Math.round(w * 0.62);
+    c.width = Math.round(w * dpr); c.height = Math.round(h * dpr);
+    c.style.width = w + 'px'; c.style.height = h + 'px';
+    var g = c.getContext('2d');
+    g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    g.clearRect(0, 0, w, h);
+    var NX = 10, NY = 8, dx = w / NX, dy = h / NY;
+
+    g.lineWidth = 1;
+    g.strokeStyle = 'rgba(80,200,150,0.22)';
+    g.beginPath();
+    for (var i = 0; i <= NX; i++) { g.moveTo(i * dx + .5, 0); g.lineTo(i * dx + .5, h); }
+    for (var j = 0; j <= NY; j++) { g.moveTo(0, j * dy + .5); g.lineTo(w, j * dy + .5); }
+    g.stroke();
+    g.strokeStyle = 'rgba(80,200,150,0.55)';
+    g.beginPath();
+    g.moveTo(0, h / 2 + .5); g.lineTo(w, h / 2 + .5);
+    g.moveTo(w / 2 + .5, 0); g.lineTo(w / 2 + .5, h);
+    g.stroke();
+    g.strokeStyle = 'rgba(80,200,150,0.55)';
+    g.beginPath();
+    for (var a = 0; a < NX * 5; a++) { var x = a * dx / 5 + .5; g.moveTo(x, h / 2 - 3); g.lineTo(x, h / 2 + 3); }
+    for (var b = 0; b < NY * 5; b++) { var y = b * dy / 5 + .5; g.moveTo(w / 2 - 3, y); g.lineTo(w / 2 + 3, y); }
+    g.stroke();
+
+    function trace(amp, color) {
+      g.strokeStyle = color; g.lineWidth = 2.2; g.lineJoin = 'round';
+      g.beginPath();
+      for (var px = 0; px <= w; px += 1) {
+        var t = (px / w) * NX * tdiv / 1000;
+        var v = amp * Math.sin(2 * Math.PI * f * t);
+        var yy = h / 2 - (v / vdiv) * dy;
+        if (px === 0) g.moveTo(px, yy); else g.lineTo(px, yy);
+      }
+      g.stroke();
+    }
+    trace(vmax, '#35d0f5');
+    trace(vmax * k, '#f2c14e');
+
+    g.font = '12px "IBM Plex Mono", monospace';
+    g.fillStyle = '#35d0f5'; g.fillText('CH1  ' + vdiv + ' V/div', 10, h - 10);
+    g.fillStyle = '#f2c14e'; g.fillText('CH2  ' + vdiv + ' V/div', 130, h - 10);
+    g.fillStyle = '#9bd9c0'; g.textAlign = 'right'; g.fillText(tdiv + ' ms/div', w - 10, h - 10); g.textAlign = 'left';
+  }
+
+  ['vcc', 'r1', 'r2', 'freq', 'vpp', 'tdiv', 'vdiv'].forEach(function (id) {
+    $(id).addEventListener('input', update);
+  });
+  window.addEventListener('resize', update);
+  update();
+})();
+</script>
+
+</body>
+</html>
